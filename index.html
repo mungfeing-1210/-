@@ -994,7 +994,7 @@
           <button id="close-modal-btn" class="close-modal-btn">&times;</button>
         </div>
         <div class="modal-body">
-          <div id="card-image-dropper" class="image-dropper">
+          <div id="card-image-dropper" class="image-dropper" tabindex="0">
             <input type="file" id="card-image-input" accept="image/*" style="display:none;">
             <div class="dropper-instructions">
               <span>拖拽、粘贴或点击此处上传卡片图片</span>
@@ -1411,23 +1411,11 @@
       // 设置上传事件
       setupCardImageEvents();
       
-      // 如果已有图片，显示当前图片
-      if (cardImages.has(currentCardIndex)) {
-        tempImageData = cardImages.get(currentCardIndex);
-        preview.src = tempImageData;
-        preview.style.display = 'block';
-        instructions.style.display = 'none';
-        removeBtn.style.display = 'block';
-        confirmBtn.disabled = false;
-        confirmBtn.textContent = '更新图片';
-      } else {
-        // 新增图片状态
-        preview.style.display = 'none';
-        instructions.style.display = 'block';
-        removeBtn.style.display = 'none';
-        confirmBtn.disabled = true;
-        confirmBtn.textContent = '确认添加';
-      }
+      // 自动聚焦到图片上传区域，使其可以直接接收Ctrl+V粘贴
+      setTimeout(() => {
+        const cardImageDropper = document.getElementById('card-image-dropper');
+        cardImageDropper.focus();
+      }, 150); // 延迟一点确保模态框完全显示
     }
     
     // 设置卡片图片上传事件
