@@ -1,0 +1,1773 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>小红书苹果风智能排版生成器</title>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <style>
+    :root {
+      --safe-padding: 24px 20px;
+      --bg-1: #fbfbfd;
+      --bg-2: #f5f5f7;
+      --bg-3: #ffffff;
+      --shadow-1: 0 4px 12px rgba(0,0,0,0.05);
+      --shadow-2: 0 8px 24px rgba(0,0,0,0.06);
+      --font-main: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      --color-main: #1d1d1f;
+      --color-secondary: #86868b;
+      --color-subtitle: #888;
+      --border-light: 1px solid #ececec;
+    }
+    body {
+      margin: 0;
+      background: var(--bg-1);
+      font-family: var(--font-main);
+      color: var(--color-main);
+      min-height: 100vh;
+    }
+    .main-layout {
+      display: flex;
+      min-height: 100vh;
+      position: relative;
+    }
+    .main-content {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      padding: 32px 24px 48px 24px;
+      box-sizing: border-box;
+      margin-left: 380px; /* 为左侧侧边栏留出空间 */
+    }
+    .app-container {
+      max-width: 480px;
+      width: 100%;
+      background: var(--bg-1);
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      box-sizing: border-box;
+    }
+    .main-title {
+      margin: 0 0 32px 0;
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--color-main);
+      text-align: center;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+    }
+    .input-area {
+      background: #fff;
+      border-radius: 18px;
+      box-shadow: var(--shadow-1);
+      padding: 20px 16px 16px 16px;
+      margin-bottom: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .image-dropper {
+      position: relative;
+      border: 2px dashed rgba(0, 0, 0, 0.08);
+      border-radius: 16px;
+      padding: 24px;
+      text-align: center;
+      color: var(--color-secondary);
+      cursor: pointer;
+      background: rgba(255, 255, 255, 0.4);
+      backdrop-filter: blur(8px);
+      transition: all 0.3s ease;
+    }
+    .image-dropper.active {
+      border-color: rgba(0, 122, 255, 0.3);
+      background: rgba(0, 122, 255, 0.04);
+      backdrop-filter: blur(12px);
+      transform: scale(1.01);
+    }
+    .image-dropper:focus {
+      outline: none;
+      border-color: rgba(0, 122, 255, 0.4);
+      background: rgba(0, 122, 255, 0.05);
+      box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+    }
+    .image-dropper .dropper-instructions {
+      pointer-events: none;
+    }
+    .image-dropper .browse-link {
+      color: #007aff;
+      font-weight: 500;
+      text-decoration: underline;
+    }
+    .image-preview {
+      max-width: 100%;
+      max-height: 180px;
+      border-radius: 8px;
+      margin-top: 12px;
+      display: none;
+    }
+    .remove-image-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: rgba(0,0,0,0.5);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      font-size: 16px;
+      line-height: 24px;
+      text-align: center;
+      cursor: pointer;
+      display: none;
+    }
+    .input-area textarea {
+      width: 100%;
+      min-height: 120px;
+      max-height: 600px;
+      resize: none;
+      border: none;
+      outline: none;
+      font-size: 15px;
+      font-family: var(--font-main);
+      background: transparent;
+      color: var(--color-main);
+      line-height: 1.6;
+      padding: 0;
+      overflow-y: auto;
+      transition: height 0.2s ease;
+    }
+    .input-area button {
+      align-self: flex-end;
+      background: #1d1d1f;
+      color: #fff;
+      font-size: 15px;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 20px;
+      cursor: pointer;
+      box-shadow: var(--shadow-1);
+      transition: background 0.2s;
+    }
+    .input-area button:hover {
+      background: #333;
+    }
+    .input-area button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    
+    /* 图片上传模态框 */
+    .image-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(8px);
+      z-index: 2000;
+      align-items: center;
+      justify-content: center;
+    }
+    .image-modal.active {
+      display: flex;
+    }
+    .modal-content {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(20px);
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+      width: 90%;
+      max-width: 480px;
+      max-height: 80vh;
+      overflow: hidden;
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 24px;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    }
+    .modal-header h3 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--color-main);
+    }
+    .close-modal-btn {
+      background: none;
+      border: none;
+      font-size: 24px;
+      color: var(--color-secondary);
+      cursor: pointer;
+      padding: 0;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      transition: background-color 0.2s;
+    }
+    .close-modal-btn:hover {
+      background: rgba(0, 0, 0, 0.1);
+    }
+    .modal-body {
+      padding: 24px;
+    }
+    .modal-footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 20px 24px;
+      border-top: 1px solid rgba(0, 0, 0, 0.05);
+      background: rgba(250, 250, 250, 0.8);
+    }
+    .cancel-btn, .confirm-btn {
+      flex: 1;
+      padding: 12px 24px;
+      border-radius: 12px;
+      border: none;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .cancel-btn {
+      background: rgba(142, 142, 147, 0.12);
+      color: var(--color-main);
+    }
+    .cancel-btn:hover {
+      background: rgba(142, 142, 147, 0.2);
+    }
+    .confirm-btn {
+      background: rgba(0, 122, 255, 1);
+      color: white;
+    }
+    .confirm-btn:hover {
+      background: rgba(0, 122, 255, 0.8);
+    }
+    .confirm-btn:disabled {
+      background: rgba(142, 142, 147, 0.12);
+      color: rgba(60, 60, 67, 0.3);
+      cursor: not-allowed;
+    }
+    .remove-image-btn {
+      background: rgba(255, 59, 48, 0.1);
+      border: 1px solid rgba(255, 59, 48, 0.2);
+      color: #ff3b30;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .remove-image-btn:hover {
+      background: rgba(255, 59, 48, 0.2);
+    }
+    
+
+    
+    /* 卡片图片显示 */
+    .card-image {
+      max-width: 100%;
+      height: auto;
+      border-radius: 12px;
+      margin: 0 0 20px 0;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+      display: block;
+    }
+    
+    /* 卡片图片添加按钮 */
+    .add-card-image-btn {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      background: rgba(0, 122, 255, 0.15);
+      border: 2px solid rgba(0, 122, 255, 0.4);
+      border-radius: 50%;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      color: rgba(0, 122, 255, 0.8);
+      font-size: 18px;
+      font-weight: 400;
+      user-select: none;
+      opacity: 0.7;
+      z-index: 10;
+    }
+    .add-card-image-btn:hover {
+      opacity: 1;
+      background: rgba(0, 122, 255, 0.2);
+      transform: scale(1.1);
+    }
+    .add-card-image-btn.remove-mode {
+      background: rgba(255, 59, 48, 0.15);
+      border-color: rgba(255, 59, 48, 0.4);
+      color: rgba(255, 59, 48, 0.8);
+    }
+    .add-card-image-btn.remove-mode:hover {
+      background: rgba(255, 59, 48, 0.2);
+    }
+
+    .sidebar-export-btn {
+      position: fixed;
+      top: 50%;
+      right: calc(50% - 720px);
+      transform: translateY(-50%);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+      color: white;
+      border: none;
+      border-radius: 20px;
+      padding: 18px 24px;
+      font-size: 15px;
+      font-weight: 600;
+      font-family: var(--font-main);
+      cursor: pointer;
+      box-shadow: 
+        0 12px 40px rgba(72, 187, 120, 0.25),
+        0 4px 16px rgba(0, 0, 0, 0.12),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(20px);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      user-select: none;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      min-width: 120px;
+      white-space: nowrap;
+    }
+    .sidebar-export-btn:hover {
+      background: linear-gradient(135deg, #38a169 0%, #2f855a 100%);
+      transform: translateY(-50%) translateY(-2px);
+      box-shadow: 
+        0 16px 50px rgba(72, 187, 120, 0.35),
+        0 6px 20px rgba(0, 0, 0, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    }
+    .sidebar-export-btn:active {
+      transform: translateY(-50%) translateY(0px);
+      transition: transform 0.15s ease;
+      box-shadow: 
+        0 8px 25px rgba(72, 187, 120, 0.3),
+        0 2px 8px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    }
+    .sidebar-export-btn:disabled {
+      background: linear-gradient(135deg, #a0aec0 0%, #718096 100%);
+      cursor: not-allowed;
+      transform: translateY(-50%);
+      box-shadow: 
+        0 4px 16px rgba(0, 0, 0, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      opacity: 0.6;
+    }
+    .sidebar-export-btn svg {
+      flex-shrink: 0;
+    }
+    .sidebar-export-btn span {
+      letter-spacing: 1px;
+      text-align: center;
+      line-height: 1;
+    }
+    
+    /* 不同屏幕尺寸的位置调整 */
+    @media (max-width: 1600px) {
+      .sidebar-export-btn {
+        right: calc(50% - 600px);
+      }
+    }
+    
+    @media (max-width: 1400px) {
+      .sidebar-export-btn {
+        right: calc(50% - 500px);
+      }
+    }
+    
+    @media (max-width: 1280px) {
+      .sidebar-export-btn {
+        right: calc(50% - 400px);
+        padding: 16px 20px;
+        font-size: 14px;
+      }
+    }
+    
+    @media (max-width: 1000px) {
+      .sidebar-export-btn {
+        right: 60px;
+      }
+    }
+    
+    .mobile-export-btn {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      z-index: 100;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+      color: white;
+      border: none;
+      border-radius: 16px;
+      padding: 12px 16px;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: var(--font-main);
+      cursor: pointer;
+      box-shadow: 
+        0 6px 20px rgba(72, 187, 120, 0.3),
+        0 2px 8px rgba(0, 0, 0, 0.12),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(16px);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      user-select: none;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+    .mobile-export-btn:hover {
+      background: linear-gradient(135deg, #38a169 0%, #2f855a 100%);
+      transform: translateY(-2px);
+      box-shadow: 
+        0 8px 25px rgba(72, 187, 120, 0.4),
+        0 4px 12px rgba(0, 0, 0, 0.18),
+        inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    }
+    .mobile-export-btn:active {
+      transform: translateY(0);
+      transition: transform 0.15s ease;
+      box-shadow: 
+        0 4px 12px rgba(72, 187, 120, 0.35),
+        0 1px 4px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    }
+    .mobile-export-btn:disabled {
+      background: linear-gradient(135deg, #a0aec0 0%, #718096 100%);
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: 
+        0 2px 8px rgba(0, 0, 0, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      opacity: 0.6;
+    }
+    .mobile-export-btn svg {
+      flex-shrink: 0;
+    }
+    
+    /* 移动端和小屏幕显示预览区内按钮，隐藏侧边按钮 */
+    @media (max-width: 768px) {
+      .sidebar-export-btn {
+        display: none;
+      }
+      .mobile-export-btn {
+        display: flex;
+      }
+      .mobile-export-btn span {
+        display: none;
+      }
+    }
+    .preview-title {
+      font-size: 16px;
+      color: var(--color-secondary);
+      margin: 0 0 10px 4px;
+      font-weight: 400;
+    }
+    .preview-area {
+      background: var(--bg-2);
+      border-radius: 22px;
+      box-shadow: var(--shadow-2);
+      padding: 0;
+      min-height: 600px;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      overflow-x: auto;
+      position: relative;
+    }
+    /* 生成区域的安全边界 */
+    .safe-container {
+      padding: var(--safe-padding);
+      box-sizing: border-box;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+      background: transparent;
+    }
+    /* 封面卡片 */
+    .cover {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 60vh;
+      background: rgba(255, 255, 255, 0.8);
+      backdrop-filter: blur(20px);
+      border-radius: 24px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.04),
+        0 1px 2px rgba(0, 0, 0, 0.06),
+        inset 0 1px 0 rgba(255, 255, 255, 0.7);
+      padding: 36px 28px 32px 28px;
+      margin-bottom: 0;
+      box-sizing: border-box;
+      position: relative;
+      transition: all 0.3s ease;
+    }
+    .cover.has-border {
+      border: 1px solid rgba(0, 0, 0, 0.04);
+    }
+    .cover-image {
+      max-width: 100%;
+      height: auto;
+      border-radius: 12px;
+      margin-bottom: 24px;
+      object-fit: cover;
+      display: block;
+    }
+    .cover-title {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      color: var(--color-main);
+      letter-spacing: 0.01em;
+      line-height: 1.2;
+      word-break: break-all;
+    }
+    .cover-subtitle {
+      font-size: 20px;
+      font-weight: 400;
+      color: var(--color-subtitle);
+      margin-bottom: 18px;
+      line-height: 1.3;
+      word-break: break-all;
+    }
+    .cover-author {
+      font-size: 16px;
+      font-weight: 400;
+      color: var(--color-secondary);
+      margin-top: 8px;
+      line-height: 1.7;
+      word-break: break-all;
+    }
+    /* 正文卡片 */
+    .content {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      width: 100%;
+    }
+    .content-card {
+      background: rgba(255, 255, 255, 0.65);
+      backdrop-filter: blur(12px);
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      box-shadow: 
+        0 4px 24px rgba(0, 0, 0, 0.03),
+        0 1px 2px rgba(0, 0, 0, 0.05),
+        inset 0 1px 0 rgba(255, 255, 255, 0.6);
+      padding: 22px 24px;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+    .content-card.has-border {
+      border: 1px solid rgba(0, 0, 0, 0.03);
+    }
+    .content-card:hover {
+      transform: translateY(-1px);
+      box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.05),
+        0 2px 4px rgba(0, 0, 0, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.7);
+    }
+    .content-card-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--color-main);
+      margin-bottom: 12px;
+      line-height: 1.5;
+    }
+    .content-card p {
+      margin: 0 0 1em 0;
+      color: var(--color-main);
+      font-size: 16px;
+      font-weight: 400;
+      line-height: 1.7;
+      word-break: break-all;
+    }
+    .content-card p:last-child {
+      margin-bottom: 0;
+    }
+    .content-card ul {
+      list-style: none;
+      margin: 1em 0;
+      padding-left: 0;
+    }
+    .content-card ul:first-child { margin-top: 0; }
+    .content-card ul:last-child { margin-bottom: 0; }
+
+    .content-card li {
+      position: relative;
+      padding-left: 20px;
+      margin-bottom: 8px;
+      line-height: 1.7;
+    }
+    .content-card li:last-child {
+        margin-bottom: 0;
+    }
+    .content-card li::before {
+      content: '•';
+      color: var(--color-secondary);
+      position: absolute;
+      left: 0;
+      top: 0;
+      font-size: 1.1em;
+    }
+    .content-card ul ul { /* Nested list */
+      padding-left: 20px;
+      margin-top: 8px;
+    }
+     .content-card ul ul li::before {
+      content: '–'; /* en-dash */
+    }
+     .content-card ul ul ul li::before {
+      content: '◦'; /* circle */
+    }
+    .highlight-green {
+      background-color: rgba(46, 204, 113, 0.15);
+      color: #1E8449;
+      font-weight: 600;
+      padding: 1px 5px;
+      border-radius: 5px;
+      /* Ensure it doesn't add extra space that breaks line height */
+      display: inline;
+    }
+    .para-card { /* This class is no longer used for content, kept for safety */
+      background: var(--bg-3);
+      border-radius: 16px;
+      box-shadow: var(--shadow-1);
+      padding: 22px 18px 20px 18px;
+      color: var(--color-main);
+      font-size: 16px;
+      font-weight: 400;
+      line-height: 1.7;
+      word-break: break-all;
+      transition: box-shadow 0.2s, background 0.2s;
+      position: relative;
+    }
+    .para-card.has-border {
+      border: var(--border-light);
+    }
+
+    /* 左侧侧边栏样式 */
+    .readme-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 380px;
+      height: 100vh;
+      background: var(--bg-1);
+      border-right: 1px solid rgba(0, 0, 0, 0.05);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: 32px 28px;
+      box-sizing: border-box;
+      overflow-y: auto;
+      z-index: 100;
+    }
+    .sidebar-title {
+      margin: 0 0 12px 0;
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--color-main);
+      text-align: center;
+      letter-spacing: -0.01em;
+      line-height: 1.2;
+    }
+    .sidebar-subtitle {
+      margin: 0 0 24px 0;
+      font-size: 14px;
+      line-height: 1.5;
+      color: var(--color-secondary);
+      text-align: center;
+      padding: 0 8px;
+    }
+    .author-info {
+      margin-top: auto;
+      padding: 20px 0 0 0;
+      border-top: 1px solid rgba(0, 0, 0, 0.08);
+    }
+    .author-text {
+      margin: 0;
+      font-size: 12px;
+      line-height: 1.4;
+      color: var(--color-secondary);
+      text-align: center;
+    }
+    .author-text strong {
+      color: var(--color-main);
+      font-weight: 600;
+    }
+    .author-text a {
+      color: #48bb78;
+      text-decoration: none;
+      font-size: 11px;
+    }
+    .author-text a:hover {
+      text-decoration: underline;
+    }
+    .code-block {
+      background: rgba(0, 0, 0, 0.03);
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      border-radius: 12px;
+      overflow: hidden;
+      margin: 12px 0;
+    }
+    .code-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 14px;
+      background: rgba(0, 0, 0, 0.02);
+      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+      font-size: 12px;
+      color: var(--color-secondary);
+      font-weight: 500;
+    }
+    .copy-btn {
+      background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .copy-btn:hover {
+      background: linear-gradient(135deg, #38a169 0%, #2f855a 100%);
+      transform: translateY(-1px);
+    }
+    .copy-btn:active {
+      transform: translateY(0);
+    }
+    .code-content {
+      margin: 0;
+      padding: 14px;
+      font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+      font-size: 11px;
+      line-height: 1.5;
+      color: var(--color-main);
+      background: transparent;
+      overflow-x: auto;
+      white-space: pre;
+    }
+    .readme-card {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(20px);
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      box-shadow: var(--shadow-1);
+      padding: 24px;
+    }
+    .readme-card h2 {
+      margin: 0 0 16px 0;
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--color-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .readme-card h3 {
+      margin: 20px 0 12px 0;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--color-main);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .readme-card p {
+      margin: 0 0 12px 0;
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--color-secondary);
+    }
+    .readme-card ul {
+      margin: 0 0 16px 0;
+      padding-left: 20px;
+    }
+    .readme-card li {
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--color-secondary);
+      margin-bottom: 6px;
+    }
+    .readme-card code {
+      background: rgba(0, 0, 0, 0.05);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 13px;
+      font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+    }
+    .feature-tag {
+      display: inline-block;
+      background: rgba(0, 122, 255, 0.1);
+      color: rgba(0, 122, 255, 0.8);
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+      margin: 2px 4px 2px 0;
+    }
+    .feature-tag.new {
+      background: rgba(52, 199, 89, 0.1);
+      color: rgba(52, 199, 89, 0.8);
+    }
+    @media (max-width: 1280px) {
+      .readme-container {
+        display: none;
+      }
+      .main-content {
+        margin-left: 0;
+      }
+    }
+    @media (max-width: 600px) {
+      .main-content {
+        padding: 0;
+      }
+      .app-container {
+        max-width: 100vw;
+        padding: 0 20px;
+      }
+      .main-title {
+        font-size: 28px;
+        margin: 24px 0 24px 0;
+      }
+      .preview-area {
+        border-radius: 0;
+      }
+      .input-area {
+        border-radius: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="main-layout">
+    <!-- 左侧侧边栏 -->
+    <div class="readme-container">
+      <h1 class="sidebar-title">使用说明</h1>
+      <p class="sidebar-subtitle">使用 Markdown 语法创建美观的小红书内容，自动分割为独立卡片并导出为高质量 PNG 图片。</p>
+      <div class="readme-card">
+        <h2>🏠 封面设置</h2>
+        <p>封面是第一张卡片，用于展示内容的主要信息和吸引用户注意。</p>
+        
+        <h3>📝 封面语法</h3>
+        <ul>
+          <li><code># 主标题</code> - 大标题，内容核心主题</li>
+          <li><code>## 副标题</code> - 副标题，补充说明（可选）</li>
+          <li><code>&gt; 作者名</code> - 署名，显示在右下角（可选）</li>
+        </ul>
+
+      </div>
+      
+      <div class="readme-card">
+        <h2>📄 内容卡片</h2>
+        <p>使用 <code>---</code> 分割线创建多个内容卡片，每个卡片独立显示。</p>
+        
+        <h3>🔧 内容语法</h3>
+        <ul>
+          <li><code>## 卡片标题</code> - 内容卡片的标题</li>
+          <li><code>**重点**</code> - 绿色高亮文字</li>
+          <li><code>&lt;br&gt;</code> - 段落内强制换行</li>
+          <li><code>- 列表项</code> - 无序列表</li>
+          <li><code>---</code> - 分割线，创建新卡片</li>
+        </ul>
+
+      </div>
+      
+      <div class="readme-card">
+        <h2>🤖 智能排版助手</h2>
+        <p>结合LLM，让AI帮你自动排版，省去手动调整的过程。</p>
+        
+        <div class="code-block">
+          <div class="code-header">
+            <span>模板代码</span>
+            <button class="copy-btn" onclick="copyTemplate()">复制</button>
+          </div>
+          <pre class="code-content"># 主标题 🌟
+## 副标题说明（可选）
+> 作者署名（可选）
+
+---
+
+## 卡片1标题 💡
+
+卡片内容：
+- 要点1
+- 要点2
+- **重点要点**
+
+---
+
+## 卡片2标题 ✨
+
+卡片内容...
+
+---</pre>
+        </div>
+
+      </div>
+      
+      <div class="author-info">
+        <p class="author-text">
+          Made by <strong>mungfeing</strong><br>
+          <a href="mailto:mungfeing@protonmail.com">mungfeing@protonmail.com</a>
+        </p>
+      </div>
+    </div>
+    
+    <div class="main-content">
+      <div class="app-container">
+    <h1 class="main-title">小红书排版工具</h1>
+    <div class="input-area">
+      <div id="image-dropper" class="image-dropper">
+        <input type="file" id="image-input" accept="image/*" style="display:none;">
+        <div class="dropper-instructions">
+          <span>拖拽、粘贴或点击此处上传封面图片</span>
+          <br>
+          <span class="browse-link">支持 Ctrl+V 粘贴</span>
+        </div>
+        <img id="image-preview" class="image-preview" src="" alt="图片预览">
+        <button id="remove-image-btn" class="remove-image-btn">&times;</button>
+      </div>
+      <textarea id="inputText" placeholder="# 主标题 😊&#10;## 副标题（可选）&#10;> 作者名（可选）&#10;正文段落1 📱&#10;正文段落2...&#10;---&#10;更多卡片内容..."></textarea>
+      <button id="generateBtn">生成</button>
+    </div>
+    <div class="preview-title">预览区（可滚动截图）</div>
+    <!-- 固定在内容右侧的导出按钮 -->
+    <button id="exportBtn" class="sidebar-export-btn">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+        <polyline points="7,10 12,15 17,10"></polyline>
+        <line x1="12" y1="15" x2="12" y2="3"></line>
+      </svg>
+      <span>导出卡片</span>
+    </button>
+    
+    <div class="preview-area">
+      <!-- 小屏幕备用按钮 -->
+      <button id="exportBtnMobile" class="mobile-export-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7,10 12,15 17,10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        <span>导出</span>
+      </button>
+      <div id="preview"></div>
+      </div>
+    </div>
+    
+    <!-- 图片上传模态框 -->
+    <div id="image-modal" class="image-modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>添加卡片图片</h3>
+          <button id="close-modal-btn" class="close-modal-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div id="card-image-dropper" class="image-dropper">
+            <input type="file" id="card-image-input" accept="image/*" style="display:none;">
+            <div class="dropper-instructions">
+              <span>拖拽、粘贴或点击此处上传卡片图片</span>
+              <br>
+              <span class="browse-link">支持 Ctrl+V 粘贴</span>
+            </div>
+            <img id="card-image-preview" class="image-preview" src="" alt="图片预览">
+            <button id="remove-card-image-btn" class="remove-image-btn">&times;</button>
+          </div>
+          <div class="modal-footer">
+            <button id="cancel-image-btn" class="cancel-btn">取消</button>
+            <button id="confirm-image-btn" class="confirm-btn">确认添加</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    // 设计元素工具箱
+    const bgColors = ['#fbfbfd', '#f5f5f7', '#ffffff'];
+    const cardShadows = [
+      '0 4px 12px rgba(0,0,0,0.05)',
+      '0 8px 24px rgba(0,0,0,0.06)'
+    ];
+    
+    // 卡片图片数据存储
+    let cardImages = new Map(); // key: cardIndex, value: imageDataUrl
+    // 生成随机但和谐的风格组合
+    function getRandomStyleCombo() {
+      // 保证背景和卡片色有区分
+      let bg = bgColors[Math.floor(Math.random()*bgColors.length)];
+      let cardBg = bg;
+      while(cardBg === bg) {
+        cardBg = bgColors[Math.floor(Math.random()*bgColors.length)];
+      }
+      // 纯白卡片需加边框
+      const cardHasBorder = cardBg === '#ffffff';
+      const cardShadow = cardShadows[Math.floor(Math.random()*cardShadows.length)];
+      return { bg, cardBg, cardShadow, cardHasBorder };
+    }
+    // 解析输入内容
+    function parseInput(text) {
+      let content = text.trim();
+      let title = '', subtitle = '', author = '';
+      
+      // Extract cover elements from the top
+      const lines = content.split(/\r?\n/);
+      const consumedLines = [];
+      
+      const titleMatch = content.match(/^# (.*)/);
+      if(titleMatch) {
+          title = titleMatch[1].trim();
+          content = content.substring(titleMatch[0].length).trim();
+      }
+      
+      const subtitleMatch = content.match(/^## (.*)/);
+      if(subtitleMatch) {
+          subtitle = subtitleMatch[1].trim();
+          content = content.substring(subtitleMatch[0].length).trim();
+      }
+      
+      const authorMatch = content.match(/^> (.*)/);
+      if(authorMatch) {
+          author = authorMatch[1].trim();
+          content = content.substring(authorMatch[0].length).trim();
+      }
+
+      // Split remaining content into cards by "---"
+      const cardBlocks = content.split(/^\s*---\s*$/m);
+      
+      const contentCards = cardBlocks.map(block => {
+        let blockContent = block.trim();
+        let cardTitle = '';
+        
+        const cardTitleMatch = blockContent.match(/^## (.*)/);
+        if(cardTitleMatch){
+            cardTitle = cardTitleMatch[1].trim();
+            blockContent = blockContent.substring(cardTitleMatch[0].length).trim();
+        }
+        
+        if (cardTitle || blockContent) {
+            return { title: cardTitle, paras: blockContent };
+        }
+        return null;
+      }).filter(Boolean);
+
+      return { title, subtitle, author, contentCards };
+    }
+    // 生成HTML
+    function generateHTML(parsed, style, imageDataUrl) {
+      // 封面
+      let coverHTML = `<section class="cover exportable-card${style.cardHasBorder ? ' has-border' : ''}" data-card-name="封面" style="background:${style.cardBg};box-shadow:${style.cardShadow};">`;
+      if(imageDataUrl) {
+        coverHTML += `<img class="cover-image" src="${imageDataUrl}" alt="封面图片">`;
+      }
+      if(parsed.title) {
+        coverHTML += `<div class="cover-title">${renderMarkdownish(parsed.title)}</div>`;
+      }
+      if(parsed.subtitle) {
+        coverHTML += `<div class="cover-subtitle">${renderMarkdownish(parsed.subtitle)}</div>`;
+      }
+      if(parsed.author) {
+        coverHTML += `<div style="width: 100%; text-align: right; margin-top: 32px;">` +
+                       `<span class="cover-author">${renderMarkdownish(parsed.author)}</span>` +
+                     `</div>`;
+      }
+      coverHTML += `</section>`;
+
+      // 正文
+      let contentHTML = '<section class="content">';
+      parsed.contentCards.forEach((section, index) => {
+        if (!section.title && !section.paras) return;
+
+        const cardName = section.title || `内容卡片${index + 1}`;
+        contentHTML += `<div class="content-card exportable-card${style.cardHasBorder ? ' has-border' : ''}" data-card-name="${cardName}" style="background:${style.cardBg};box-shadow:${style.cardShadow};">`;
+        
+        // 添加卡片图片（在顶部）
+        if(cardImages.has(index)) {
+          contentHTML += `<img class="card-image" src="${cardImages.get(index)}" alt="卡片图片">`;
+        }
+        
+        if(section.title){
+          contentHTML += `<div class="content-card-title">${renderMarkdownish(section.title)}</div>`;
+        }
+        if(section.paras){
+           contentHTML += renderComplexContent(section.paras, index);
+        }
+        
+        // 添加图片控制按钮（在卡片右上角）
+        if(cardImages.has(index)) {
+          contentHTML += `<div class="add-card-image-btn remove-mode" data-card="${index}">-</div>`;
+        } else {
+          contentHTML += `<div class="add-card-image-btn" data-card="${index}">+</div>`;
+        }
+        
+        contentHTML += `</div>`;
+      });
+      contentHTML += '</section>';
+      // 安全边界容器
+      return `<div class="safe-container" style="background:${style.bg};">${coverHTML}${contentHTML}</div>`;
+    }
+
+    function renderComplexContent(parasText, cardIndex = 0) {
+      if (!parasText) return '';
+      const subBlocks = parasText.trim().split(/\n\s*\n/);
+      let finalHTML = '';
+
+      for (let i = 0; i < subBlocks.length; i++) {
+        const trimmedBlock = subBlocks[i].trim();
+        if (!trimmedBlock) continue;
+        const lines = trimmedBlock.split(/\r?\n/);
+        
+        const isBulletedList = lines.every(line => line.match(/^(\s*)[-*+]\s/));
+        
+        if (isBulletedList) {
+          finalHTML += parseAndRenderList(lines);
+        } else {
+          finalHTML += `<p>${renderMarkdownish(trimmedBlock.replace(/\n/g, '<br>'))}</p>`;
+        }
+      }
+      
+      return finalHTML;
+    }
+
+    function parseAndRenderList(lines) {
+        let i = 0;
+        function parse(currentIndent) {
+            let html = '<ul>';
+            while (i < lines.length) {
+                const line = lines[i];
+                const match = line.match(/^(\s*)([-*+])\s+(.*)/);
+                if (!match) { i++; continue; }
+                const indent = match[1].length;
+                const content = match[3];
+
+                if (indent > currentIndent) {
+                    html += `<li>${renderMarkdownish(content)}`;
+                    i++;
+                    const nextLine = lines[i];
+                    if (nextLine) {
+                        const nextMatch = nextLine.match(/^(\s*)/);
+                        if (nextMatch && nextMatch[1].length > indent) {
+                            html += parse(indent);
+                        }
+                    }
+                    html += '</li>';
+                } else {
+                    break;
+                }
+            }
+            html += '</ul>';
+            return html;
+        }
+        return parse(-1);
+    }
+
+    // HTML转义与Markdown高亮处理
+    function renderMarkdownish(str) {
+      if (!str) return '';
+      // 1. 先处理<br>标签，保护它们不被转义
+      let processed = str.replace(/<br\s*\/?>/gi, '〖〖〖BR〗〗〗');
+      // 2. Escape HTML to prevent injection
+      processed = escapeHTML(processed);
+      // 3. Replace markdown bold with highlight span
+      processed = processed.replace(/\*\*(.*?)\*\*/g, '<span class="highlight-green">$1</span>');
+      processed = processed.replace(/__([^_]+)__/g, '<span class="highlight-green">$1</span>');
+      // 4. 恢复<br>标签
+      processed = processed.replace(/〖〖〖BR〗〗〗/g, '<br>');
+      return processed;
+    }
+    // HTML转义
+    function escapeHTML(str) {
+      return str.replace(/[&<>"']/g, function(tag) {
+        const chars = {
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#39;'
+        };
+        return chars[tag] || tag;
+      });
+    }
+    // 事件绑定
+    document.getElementById('generateBtn').addEventListener('click', () => {
+      const input = document.getElementById('inputText').value;
+      const parsed = parseInput(input);
+      const style = getRandomStyleCombo();
+      const imageDataUrl = document.getElementById('image-preview').src;
+      const html = generateHTML(parsed, style, imageDataUrl.startsWith('data:') ? imageDataUrl : null);
+      document.getElementById('preview').innerHTML = html;
+    });
+
+    // 导出图片功能
+    async function handleExport() {
+      const exportBtn = document.getElementById('exportBtn');
+      const exportBtnMobile = document.getElementById('exportBtnMobile');
+      const activeBtn = window.innerWidth <= 768 ? exportBtnMobile : exportBtn;
+      
+      const originalText = activeBtn.textContent;
+      activeBtn.textContent = '导出中...';
+      activeBtn.disabled = true;
+      exportBtn.disabled = true;
+      exportBtnMobile.disabled = true;
+
+      try {
+        const cards = document.querySelectorAll('.exportable-card');
+        
+        for (let i = 0; i < cards.length; i++) {
+          const card = cards[i];
+          const cardName = card.getAttribute('data-card-name') || `卡片${i + 1}`;
+          
+          // 创建导出专用的容器，包含安全边界和背景
+          const exportContainer = document.createElement('div');
+          exportContainer.style.cssText = `
+            width: 540px;
+            padding: 30px;
+            box-sizing: border-box;
+            background: linear-gradient(135deg, #fbfbfd 0%, #f5f5f7 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: ${card.offsetHeight + 120}px;
+          `;
+          
+          // 克隆卡片并调整样式
+          const cardClone = card.cloneNode(true);
+          
+          // 移除所有"+"按钮，确保不出现在导出图片中
+          const addBtns = cardClone.querySelectorAll('.add-card-image-btn');
+          addBtns.forEach(btn => btn.remove());
+          
+          cardClone.style.cssText = `
+            width: 100%;
+            max-width: 480px;
+            margin: 0;
+            box-shadow: 
+              0 20px 60px rgba(0, 0, 0, 0.08),
+              0 8px 24px rgba(0, 0, 0, 0.06),
+              0 2px 8px rgba(0, 0, 0, 0.04);
+            transform: none;
+            position: relative;
+            border-radius: ${card.classList.contains('cover') ? '24px' : '20px'};
+            backdrop-filter: blur(20px);
+          `;
+          
+          exportContainer.appendChild(cardClone);
+          
+          // 临时添加到页面（不可见）
+          exportContainer.style.position = 'fixed';
+          exportContainer.style.top = '-9999px';
+          exportContainer.style.left = '-9999px';
+          document.body.appendChild(exportContainer);
+          
+          const canvas = await html2canvas(exportContainer, {
+            backgroundColor: null,
+            scale: 2,
+            useCORS: true,
+            logging: false,
+            width: 540,
+            height: exportContainer.offsetHeight
+          });
+          
+          // 移除临时容器
+          document.body.removeChild(exportContainer);
+          
+          // 下载图片
+          const link = document.createElement('a');
+          link.download = `${cardName}.png`;
+          link.href = canvas.toDataURL('image/png');
+          link.click();
+          
+          // 添加小延迟，避免同时下载过多文件
+          if (i < cards.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+        }
+      } catch (error) {
+        console.error('导出失败:', error);
+        alert('导出失败，请稍后重试');
+      } finally {
+        activeBtn.textContent = originalText;
+        exportBtn.disabled = false;
+        exportBtnMobile.disabled = false;
+      }
+    }
+
+    // 绑定两个按钮的点击事件
+    document.getElementById('exportBtn').addEventListener('click', handleExport);
+    document.getElementById('exportBtnMobile').addEventListener('click', handleExport);
+
+    // 卡片图片管理功能
+    let currentCardIndex = null; // 当前选择的卡片索引
+    let tempImageData = null; // 临时图片数据，待确认
+    
+    // 监听卡片图片控制按钮点击
+    document.addEventListener('click', (e) => {
+      if (e.target.classList.contains('add-card-image-btn')) {
+        const cardIndex = parseInt(e.target.dataset.card);
+        currentCardIndex = cardIndex;
+        
+        // 检查是否是删除模式（"-"按钮）
+        if (e.target.classList.contains('remove-mode')) {
+          // 删除图片
+          cardImages.delete(cardIndex);
+          // 重新生成预览
+          document.getElementById('generateBtn').click();
+        } else {
+          // 添加图片模式（"+"按钮）
+          showImageModal();
+        }
+      }
+    });
+    
+    // 显示图片上传模态框
+    function showImageModal() {
+      const modal = document.getElementById('image-modal');
+      const preview = document.getElementById('card-image-preview');
+      const instructions = document.querySelector('#card-image-dropper .dropper-instructions');
+      const removeBtn = document.getElementById('remove-card-image-btn');
+      const confirmBtn = document.getElementById('confirm-image-btn');
+      const fileInput = document.getElementById('card-image-input');
+      const modalTitle = document.querySelector('#image-modal .modal-header h3');
+      
+      // 检查是否是编辑现有图片
+      if (cardImages.has(currentCardIndex)) {
+        // 编辑模式：显示现有图片
+        tempImageData = cardImages.get(currentCardIndex);
+        preview.src = tempImageData;
+        preview.style.display = 'block';
+        instructions.style.display = 'none';
+        removeBtn.style.display = 'block';
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = '更新图片';
+        modalTitle.textContent = '编辑卡片图片';
+      } else {
+        // 新增模式：重置状态
+        tempImageData = null;
+        preview.style.display = 'none';
+        instructions.style.display = 'block';
+        removeBtn.style.display = 'none';
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = '确认添加';
+        modalTitle.textContent = '添加卡片图片';
+      }
+      
+      fileInput.value = '';
+      modal.classList.add('active');
+      
+      // 设置上传事件
+      setupCardImageEvents();
+      
+      // 如果已有图片，显示当前图片
+      if (cardImages.has(currentCardIndex)) {
+        tempImageData = cardImages.get(currentCardIndex);
+        preview.src = tempImageData;
+        preview.style.display = 'block';
+        instructions.style.display = 'none';
+        removeBtn.style.display = 'block';
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = '更新图片';
+      } else {
+        // 新增图片状态
+        preview.style.display = 'none';
+        instructions.style.display = 'block';
+        removeBtn.style.display = 'none';
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = '确认添加';
+      }
+    }
+    
+    // 设置卡片图片上传事件
+    function setupCardImageEvents() {
+      const dropper = document.getElementById('card-image-dropper');
+      const fileInput = document.getElementById('card-image-input');
+      const preview = document.getElementById('card-image-preview');
+      const instructions = dropper.querySelector('.dropper-instructions');
+      const removeBtn = document.getElementById('remove-card-image-btn');
+      
+      // 移除之前的事件监听器
+      dropper.replaceWith(dropper.cloneNode(true));
+      const newDropper = document.getElementById('card-image-dropper');
+      const newFileInput = document.getElementById('card-image-input');
+      const newPreview = document.getElementById('card-image-preview');
+      const newInstructions = newDropper.querySelector('.dropper-instructions');
+      const newRemoveBtn = document.getElementById('remove-card-image-btn');
+      
+      newDropper.addEventListener('click', () => newFileInput.click());
+      newFileInput.addEventListener('change', (e) => handleCardImageFile(e.target.files[0]));
+      
+      // 拖拽上传
+      newDropper.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        newDropper.classList.add('active');
+      });
+      newDropper.addEventListener('dragleave', () => {
+        newDropper.classList.remove('active');
+      });
+      newDropper.addEventListener('drop', (e) => {
+        e.preventDefault();
+        newDropper.classList.remove('active');
+        const file = e.dataTransfer.files[0];
+        if (file && file.type.startsWith('image/')) {
+          handleCardImageFile(file);
+        }
+      });
+      
+      // 粘贴图片
+      newDropper.addEventListener('paste', (e) => {
+        e.preventDefault();
+        const items = e.clipboardData.items;
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          if (item.type.startsWith('image/')) {
+            const file = item.getAsFile();
+            if (file) {
+              handleCardImageFile(file);
+            }
+            break;
+          }
+        }
+      });
+      
+      // 移除图片
+      newRemoveBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (currentCardIndex !== null) {
+          tempImageData = null;
+          newPreview.src = '';
+          newPreview.style.display = 'none';
+          newRemoveBtn.style.display = 'none';
+          newInstructions.style.display = 'block';
+          newFileInput.value = '';
+          
+          const confirmBtn = document.getElementById('confirm-image-btn');
+          if (cardImages.has(currentCardIndex)) {
+            // 如果之前有图片，删除是为了移除图片
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = '移除图片';
+          } else {
+            // 如果之前没有图片，删除是为了清空选择
+            confirmBtn.disabled = true;
+            confirmBtn.textContent = '确认添加';
+          }
+        }
+      });
+      
+      newDropper.setAttribute('tabindex', '0');
+    }
+    
+    // 处理卡片图片文件
+    function handleCardImageFile(file) {
+      if (!file || currentCardIndex === null) return;
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        // 只保存到临时变量，不立即更新到cardImages
+        tempImageData = e.target.result;
+        
+        // 更新预览
+        const preview = document.getElementById('card-image-preview');
+        const instructions = document.querySelector('#card-image-dropper .dropper-instructions');
+        const removeBtn = document.getElementById('remove-card-image-btn');
+        const confirmBtn = document.getElementById('confirm-image-btn');
+        
+        preview.src = e.target.result;
+        preview.style.display = 'block';
+        instructions.style.display = 'none';
+        removeBtn.style.display = 'block';
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = '确认添加';
+      };
+      reader.readAsDataURL(file);
+    }
+    
+    // 确认添加图片
+    document.getElementById('confirm-image-btn').addEventListener('click', () => {
+      if (currentCardIndex !== null) {
+        if (tempImageData) {
+          // 添加或更新图片
+          cardImages.set(currentCardIndex, tempImageData);
+        } else {
+          // 移除图片
+          cardImages.delete(currentCardIndex);
+        }
+        
+        // 关闭模态框
+        document.getElementById('image-modal').classList.remove('active');
+        
+        // 重新生成预览
+        document.getElementById('generateBtn').click();
+      }
+    });
+    
+    // 取消操作
+    document.getElementById('cancel-image-btn').addEventListener('click', () => {
+      document.getElementById('image-modal').classList.remove('active');
+    });
+    
+    // 关闭模态框
+    document.getElementById('close-modal-btn').addEventListener('click', () => {
+      document.getElementById('image-modal').classList.remove('active');
+    });
+    
+    // 点击模态框背景关闭
+    document.getElementById('image-modal').addEventListener('click', (e) => {
+      if (e.target.id === 'image-modal') {
+        document.getElementById('image-modal').classList.remove('active');
+      }
+    });
+
+    // 图片上传逻辑
+    const dropper = document.getElementById('image-dropper');
+    const fileInput = document.getElementById('image-input');
+    const preview = document.getElementById('image-preview');
+    const instructions = document.querySelector('.dropper-instructions');
+    const removeBtn = document.getElementById('remove-image-btn');
+
+    dropper.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
+    
+    // 拖拽上传
+    dropper.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropper.classList.add('active');
+    });
+    dropper.addEventListener('dragleave', () => {
+      dropper.classList.remove('active');
+    });
+    dropper.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropper.classList.remove('active');
+      const file = e.dataTransfer.files[0];
+      if (file && file.type.startsWith('image/')) {
+        handleFile(file);
+      }
+    });
+
+    // 粘贴图片功能
+    dropper.addEventListener('paste', (e) => {
+      e.preventDefault();
+      const items = e.clipboardData.items;
+      
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.type.startsWith('image/')) {
+          const file = item.getAsFile();
+          if (file) {
+            handleFile(file);
+            // 添加视觉反馈
+            dropper.style.borderColor = 'rgba(0, 122, 255, 0.5)';
+            dropper.style.background = 'rgba(0, 122, 255, 0.08)';
+            setTimeout(() => {
+              dropper.style.borderColor = '';
+              dropper.style.background = '';
+            }, 300);
+          }
+          break;
+        }
+      }
+    });
+
+    // 让上传区可以获得焦点以便接收粘贴事件
+    dropper.setAttribute('tabindex', '0');
+    
+    // 全局粘贴监听（作为备选方案）
+    document.addEventListener('paste', (e) => {
+      // 只有当没有其他输入框聚焦时才处理
+      if (document.activeElement === dropper || document.activeElement === document.body) {
+        const items = e.clipboardData.items;
+        
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          if (item.type.startsWith('image/')) {
+            e.preventDefault();
+            const file = item.getAsFile();
+            if (file) {
+              handleFile(file);
+              // 添加全局粘贴的视觉反馈
+              dropper.style.borderColor = 'rgba(0, 200, 83, 0.5)';
+              dropper.style.background = 'rgba(0, 200, 83, 0.08)';
+              setTimeout(() => {
+                dropper.style.borderColor = '';
+                dropper.style.background = '';
+              }, 500);
+            }
+            break;
+          }
+        }
+      }
+    });
+
+    // 移除图片
+    removeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      preview.src = '';
+      preview.style.display = 'none';
+      removeBtn.style.display = 'none';
+      instructions.style.display = 'block';
+      fileInput.value = '';
+    });
+
+    function handleFile(file) {
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        preview.src = e.target.result;
+        preview.style.display = 'block';
+        instructions.style.display = 'none';
+        removeBtn.style.display = 'block';
+      }
+      reader.readAsDataURL(file);
+    }
+
+    // 自适应高度函数
+    function autoResizeTextarea(textarea) {
+      // 重置高度以获取正确的scrollHeight
+      textarea.style.height = 'auto';
+      // 计算所需高度
+      const maxHeight = 600; // 与CSS中的max-height保持一致
+      const minHeight = 120; // 与CSS中的min-height保持一致
+      const newHeight = Math.max(minHeight, Math.min(maxHeight, textarea.scrollHeight));
+      // 设置新高度
+      textarea.style.height = newHeight + 'px';
+    }
+
+    // 复制模板代码功能
+    function copyTemplate() {
+      const template = `# 主标题 🌟
+## 副标题说明（可选）
+> 作者署名（可选）
+
+---
+
+## 卡片1标题 💡
+
+卡片内容：
+- 要点1
+- 要点2
+- **重点要点**
+
+---
+
+## 卡片2标题 ✨
+
+卡片内容...
+
+---`;
+
+      navigator.clipboard.writeText(template).then(() => {
+        // 复制成功的视觉反馈
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.textContent = '已复制!';
+        btn.style.background = 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)';
+        
+        setTimeout(() => {
+          btn.textContent = originalText;
+          btn.style.background = 'linear-gradient(135deg, #48bb78 0%, #38a169 100%)';
+        }, 2000);
+      }).catch(() => {
+        // 降级方案：选择文本
+        const codeContent = document.querySelector('.code-content');
+        const range = document.createRange();
+        range.selectNodeContents(codeContent);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        
+        try {
+          document.execCommand('copy');
+          const btn = event.target;
+          const originalText = btn.textContent;
+          btn.textContent = '已复制!';
+          setTimeout(() => {
+            btn.textContent = originalText;
+          }, 2000);
+        } catch (err) {
+          alert('请手动复制代码');
+        }
+        
+        selection.removeAllRanges();
+      });
+    }
+
+    // 首次加载时生成一次默认预览
+    window.addEventListener('DOMContentLoaded', () => {
+      const inputText = document.getElementById('inputText');
+      document.getElementById('inputText').value = `# 小红书排版工具使用说明 📖
+## 快速上手指南
+> By mungfeing
+
+欢迎使用小红书排版工具！这个工具可以帮你快速制作美观的内容卡片。
+
+**基础语法：**
+- 使用 **# 主标题** 创建封面
+- 使用 **## 副标题** 添加说明  
+- 使用 **> 作者名** 添加署名
+- 使用 **加粗** 高亮重要内容
+
+---
+
+## 创建内容卡片 📄
+
+使用 **---** 分割线可以创建新的内容卡片：
+
+- 每个卡片可以有独立的 **## 标题**
+- 支持列表、换行和高亮
+- 可以添加图片（点击卡片上的 + 按钮）
+
+完成编辑后，点击右侧的 **导出卡片** 按钮即可下载PNG图片！
+
+---
+
+## 试试编辑这段文字 ✨
+
+删除这些内容，写入你自己的文字，实时预览效果。
+
+**提示：**
+- 封面只支持 # 主标题
+- 内容卡片使用 ## 标题  
+- 记得用 **加粗** 突出重点！`;
+      document.getElementById('generateBtn').click();
+      
+      // 添加自适应高度事件监听器
+      inputText.addEventListener('input', () => autoResizeTextarea(inputText));
+      inputText.addEventListener('paste', () => {
+        setTimeout(() => autoResizeTextarea(inputText), 10);
+      });
+      
+      // 初始化高度
+      autoResizeTextarea(inputText);
+    });
+  </script>
+  </div>
+</body>
+</html> 
