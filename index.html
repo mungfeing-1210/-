@@ -1224,9 +1224,33 @@
       const parsed = parseInput(input);
       const style = getRandomStyleCombo();
       const imageDataUrl = document.getElementById('image-preview').src;
+      
+      // 清理无效的卡片图片索引
+      cleanupCardImages(parsed.contentCards.length);
+      
       const html = generateHTML(parsed, style, imageDataUrl.startsWith('data:') ? imageDataUrl : null);
       document.getElementById('preview').innerHTML = html;
     });
+    
+    // 清理无效的卡片图片索引
+    function cleanupCardImages(totalCards) {
+      const validIndexes = [];
+      for (let i = 0; i < totalCards; i++) {
+        validIndexes.push(i);
+      }
+      
+      // 删除超出当前卡片数量的图片
+      const keysToDelete = [];
+      cardImages.forEach((value, key) => {
+        if (!validIndexes.includes(key)) {
+          keysToDelete.push(key);
+        }
+      });
+      
+      keysToDelete.forEach(key => {
+        cardImages.delete(key);
+      });
+    }
 
     // 导出图片功能
     async function handleExport() {
