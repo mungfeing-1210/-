@@ -1218,6 +1218,53 @@
         return chars[tag] || tag;
       });
     }
+    // 设置默认封面图片
+    function setDefaultCoverImage() {
+      const defaultImageSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
+        <defs>
+          <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+          </linearGradient>
+        </defs>
+        <rect width="400" height="300" fill="url(#bg)"/>
+        <text x="200" y="130" font-family="Arial, sans-serif" font-size="24" font-weight="bold" text-anchor="middle" fill="white" opacity="0.9">Use Case 示例</text>
+        <text x="200" y="160" font-family="Arial, sans-serif" font-size="16" text-anchor="middle" fill="white" opacity="0.7">小红书排版工具演示</text>
+        <text x="200" y="200" font-family="Arial, sans-serif" font-size="14" text-anchor="middle" fill="white" opacity="0.6">📖 点击上方区域替换图片</text>
+      </svg>`;
+      
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+      
+      canvas.width = 400;
+      canvas.height = 300;
+      
+      img.onload = function() {
+        ctx.drawImage(img, 0, 0);
+        const defaultImageDataUrl = canvas.toDataURL('image/png');
+        
+        // 设置到预览区域
+        const preview = document.getElementById('image-preview');
+        preview.src = defaultImageDataUrl;
+        preview.style.display = 'block';
+        
+        // 隐藏上传提示
+        const instructions = document.querySelector('#image-dropper .dropper-instructions');
+        instructions.style.display = 'none';
+        
+        // 自动生成初始预览
+        document.getElementById('generateBtn').click();
+      };
+      
+      img.src = 'data:image/svg+xml;base64,' + btoa(defaultImageSvg);
+    }
+
+    // 页面加载完成后设置默认图片
+    document.addEventListener('DOMContentLoaded', () => {
+      setDefaultCoverImage();
+    });
+
     // 事件绑定
     document.getElementById('generateBtn').addEventListener('click', () => {
       const input = document.getElementById('inputText').value;
